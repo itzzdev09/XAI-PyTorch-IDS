@@ -1,53 +1,65 @@
 import os
+import glob
 import pandas as pd
-from sklearn.impute import SimpleImputer
-from sklearn.preprocessing import LabelEncoder
+import json
 
-# Paths
-SIMARGL_PATH = "Data/simargl2022"
+RAW_DATA_DIR = "Data/simargl2022"
 PROCESSED_PATH = "Data/processed/processed_data.csv"
+LABEL_MAP_PATH = "Data/processed/label_map.json"
 
-def preprocess_data():
-    print("📂 Searching for SIMARGL dataset...")
+# Define label mapping
+LABEL_MAP = {
+    "normal": 0,
+    "dos": 1,
+    "malware": 2,
+    "portscanning": 3
+}
 
-    # find first CSV in simargl2022
-    files = [f for f in os.listdir(SIMARGL_PATH) if f.endswith(".csv")]
+def assign_label_from_filename(filename: str) -> int:
+    """
+    Determine label from filename (e.g., dos-03-15-2022.csv -> 'dos').
+    """
+    fname = os.path.basename(filename).lower()
+    for key in LABEL_MAP.keys():
+        if key in fname:
+            return LABEL_MAP[key]
+    raise ValueError(f"❌ Could not assign label for file: {filename}")
+
+def preprocess():
+    os.makedirs("Data/processed", exist_ok=True)
+
+    files = glob.glob(os.path.join(RAW_DATA_DIR, "*.csv"))
     if not files:
-        raise FileNotFoundError("❌ No CSV file found inside Data/simargl2022/")
-    
-    file_path = os.path.join(SIMARGL_PATH, files[0])
-    print(f"✅ Found dataset: {file_path}")
+        raise FileNotFoundError("❌ No CSV files found in Data/simargl2022")
 
-    # load data
-    df = pd.read_csv(file_path)
-    print(f"📊 Raw data shape: {df.shape}")
+    all_dfs = []
+    print(f"📂 Found {len(files)} CSV files. Preprocessing...")
 
-    # separate categorical & numerical
-    categorical_cols = df.select_dtypes(include=["object"]).columns
-    numeric_cols = df.select_dtypes(exclude=["object"]).columns
+    for file in files:
+        try:
+            df = pd.read_csv(file)
 
-    print(f"📝 Handling {len(categorical_cols)} categorical and {len(numeric_cols)} numeric columns...")
+            # Add Label column
+            df["Label"] = assign_label_from_filename(file)
 
-    # impute numeric with mean
-    if len(numeric_cols) > 0:
-        imputer_num = SimpleImputer(strategy="mean")
-        df[numeric_cols] = imputer_num.fit_transform(df[numeric_cols])
+            print(f"   ✅ {os.path.basename(file)} → Label {df['Label'].iloc[0]}")
+            all_dfs.append(df)
 
-    # impute categorical with most_frequent
-    if len(categorical_cols) > 0:
-        imputer_cat = SimpleImputer(strategy="most_frequent")
-        df[categorical_cols] = imputer_cat.fit_transform(df[categorical_cols])
+        except Exception as e:
+            print(f"❌ Error reading {file}: {e}")
 
-        # encode categorical with LabelEncoder
-        for col in categorical_cols:
-            le = LabelEncoder()
-            df[col] = le.fit_transform(df[col])
+    # Concatenate all
+    full_df = pd.concat(all_dfs, ignore_index=True)
 
-    # save processed data
-    os.makedirs(os.path.dirname(PROCESSED_PATH), exist_ok=True)
-    df.to_csv(PROCESSED_PATH, index=False)
-    print(f"✅ Preprocessing complete. Saved to {PROCESSED_PATH}")
-    print(f"📊 Processed data shape: {df.shape}")
+    # Save processed data
+    full_df.to_csv(PROCESSED_PATH, index=False)
+    with open(LABEL_MAP_PATH, "w") as f:
+        json.dump(LABEL_MAP, f, indent=4)
+
+    print(f"\n✅ Preprocessing complete.")
+    print(f"📊 Final shape: {full_df.shape}")
+    print(f"📌 Saved processed data → {PROCESSED_PATH}")
+    print(f"📌 Saved label mapping → {LABEL_MAP_PATH}")
 
 if __name__ == "__main__":
-    preprocess_data()
+    preprocess()
