@@ -1,0 +1,7 @@
+,precision,recall,f1-score,support
+Denial of Service,1.0,1.0,1.0,1010537.0
+Malware,1.0,1.0,1.0,114.0
+Port Scanning,1.0,1.0,1.0,775699.0
+accuracy,1.0,1.0,1.0,1.0
+macro avg,1.0,1.0,1.0,1786350.0
+weighted avg,1.0,1.0,1.0,1786350.0
