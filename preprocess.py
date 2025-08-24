@@ -1,42 +1,61 @@
+# preprocess.py
 import os
 import pandas as pd
-from glob import glob
+import json
 
-def preprocess():
-    print("📂 Loading raw data...")
+RAW_FOLDER = "Data/simargl2022"
+PROCESSED_FOLDER = "Data/processed"
+os.makedirs(PROCESSED_FOLDER, exist_ok=True)
 
-    files = glob("Data/simargl2022/*.csv")
-    if not files:
-        raise FileNotFoundError("❌ No CSV files found in Data/simargl2022")
+LABEL_MAP = {
+    "normal": 0,
+    "dos": 1,
+    "malware": 2,
+    "portscanning": 3
+}
+
+def preprocess_single(file_path):
+    filename = os.path.basename(file_path)
+    attack_type = None
+    for key in LABEL_MAP:
+        if key in filename.lower():
+            attack_type = key
+            break
+    if attack_type is None:
+        print(f"⚠️ Skipping {filename}: ❌ Cannot detect attack type")
+        return None
+    
+    df = pd.read_csv(file_path)
+    df["Label"] = LABEL_MAP[attack_type]
+    print(f"✅ {filename} → Label {LABEL_MAP[attack_type]}")
+    return df
+
+def preprocess(single_file=None):
+    if single_file:
+        files = [os.path.join(RAW_FOLDER, single_file)]
+    else:
+        files = [os.path.join(RAW_FOLDER, f) for f in os.listdir(RAW_FOLDER) if f.endswith(".csv")]
 
     dfs = []
     for f in files:
-        try:
-            df = pd.read_csv(f, low_memory=False)
-            if 'Label' not in df.columns:
-                raise ValueError(f"❌ No 'Label' column in {f}")
+        df = preprocess_single(f)
+        if df is not None:
             dfs.append(df)
-        except Exception as e:
-            print(f"⚠️ Skipping {f}: {e}")
+
+    if not dfs:
+        raise ValueError("❌ No files to process!")
 
     full_df = pd.concat(dfs, ignore_index=True)
-
-    # Encode labels numerically (0,1,2,...)
-    attack_names = full_df['Label'].unique().tolist()
-    label_map = {name: i for i, name in enumerate(attack_names)}
-    full_df['Label'] = full_df['Label'].map(label_map)
-
-    os.makedirs("Data", exist_ok=True)
-
-    # Save both formats
-    csv_path = "Data/processed_data.csv"
-    parquet_path = "Data/processed_data.parquet"
-
-    full_df.to_csv(csv_path, index=False)
-    full_df.to_parquet(parquet_path, engine="pyarrow", index=False)
-
-    print(f"✅ Saved processed data to {csv_path} and {parquet_path}")
-    print("📊 Attack mapping:", label_map)
+    output_csv = os.path.join(PROCESSED_FOLDER, "processed_data.csv")
+    full_df.to_parquet(output_csv, index=False)  # Using parquet for faster I/O
+    with open(os.path.join(PROCESSED_FOLDER, "label_map.json"), "w") as f:
+        json.dump(LABEL_MAP, f)
+    print(f"✅ Preprocessing complete. Saved to {output_csv}")
+    print(f"📊 Final shape: {full_df.shape}")
 
 if __name__ == "__main__":
+    # To preprocess all datasets
     preprocess()
+
+    # OR preprocess single file
+    # preprocess(single_file="dos-03-15-2022-15-44-32.csv")
