@@ -1,4 +1,3 @@
-# preprocess.py
 import os
 import pandas as pd
 import json
@@ -44,7 +43,7 @@ def preprocess():
         # Fill missing values
         for col in df.columns:
             if df[col].dtype == 'object':
-                df[col] = df[col].fillna("missing")
+                df[col] = df[col].fillna("missing").astype(str)
             else:
                 df[col] = df[col].fillna(0)
 
@@ -58,6 +57,11 @@ def preprocess():
     # Combine all CSVs into one
     if all_dfs:
         full_df = pd.concat(all_dfs, ignore_index=True)
+
+        # Ensure all object columns are strings (for Parquet)
+        for col in full_df.select_dtypes(include=['object']).columns:
+            full_df[col] = full_df[col].fillna("missing").astype(str)
+
         combined_file = os.path.join(PROCESSED_DIR, "simargl_full.parquet")
         full_df.to_parquet(combined_file, index=False)
         print(f"✅ Combined dataset saved → {combined_file} (Label={full_df['Label'].nunique()} classes)")

@@ -1,0 +1,65 @@
+{
+  "data_path": "data/processed/simargl_full.parquet",
+  "shape_full": [
+    30148258,
+    33
+  ],
+  "shape_downsampled": [
+    750571,
+    33
+  ],
+  "class_counts_full": {
+    "0": 19552134,
+    "1": 6425161,
+    "3": 4170392,
+    "2": 571
+  },
+  "class_counts_downsampled": {
+    "1": 250000,
+    "0": 250000,
+    "3": 250000,
+    "2": 571
+  },
+  "cat_cols": [
+    "PROTOCOL_MAP",
+    "IPV4_SRC_ADDR",
+    "IPV4_DST_ADDR",
+    "ALERT"
+  ],
+  "cb_params_gpu": {
+    "loss_function": "MultiClass",
+    "eval_metric": "MultiClass",
+    "iterations": 800,
+    "depth": 6,
+    "learning_rate": 0.1,
+    "l2_leaf_reg": 3.0,
+    "random_seed": 42,
+    "task_type": "GPU",
+    "devices": "0",
+    "auto_class_weights": "SqrtBalanced",
+    "rsm": 0.8,
+    "bootstrap_type": "Bernoulli",
+    "subsample": 0.8,
+    "gpu_ram_part": 0.85,
+    "verbose": 100,
+    "use_best_model": false
+  },
+  "cb_params_cpu": {
+    "loss_function": "MultiClass",
+    "eval_metric": "MultiClass",
+    "iterations": 800,
+    "depth": 6,
+    "learning_rate": 0.1,
+    "l2_leaf_reg": 3.0,
+    "random_seed": 42,
+    "auto_class_weights": "SqrtBalanced",
+    "rsm": 0.8,
+    "bootstrap_type": "Bernoulli",
+    "subsample": 0.8,
+    "verbose": 100,
+    "use_best_model": false,
+    "task_type": "CPU",
+    "thread_count": 20
+  },
+  "chunk_iters": 200
+}
