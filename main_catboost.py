@@ -116,15 +116,22 @@ def train_in_chunks(params, train_pool, eval_pool, total_iters, chunk_iters, tra
     return model
 
 def compute_shap(model, X_sample, cat_indices, run_dir):
-    shap_pool = Pool(X_sample, cat_features=cat_indices)
-    shap_values = model.get_feature_importance(shap_pool, type="ShapValues")
-    sv = np.array(shap_values)[:, :X_sample.shape[1]]  # match features
-    plt.figure()
-    shap.summary_plot(sv, X_sample, show=False)
-    shap_path = os.path.join(run_dir, "shap_summary.png")
-    plt.savefig(shap_path, dpi=150, bbox_inches="tight")
+    print("🔍 Computing SHAP with CatBoost built-in method...")
+    
+    # CatBoost handles categorical encoding itself
+    shap_values = model.get_feature_importance(
+        data=catboost.Pool(X_sample, cat_features=cat_indices),
+        type="ShapValues"
+    )
+    
+    # Remove last column (CatBoost adds expected value column)
+    shap_values = shap_values[:, :-1]
+    
+    # Plot with shap
+    shap.summary_plot(shap_values, X_sample, show=False)
+    plt.savefig(os.path.join(run_dir, "shap_summary.png"), bbox_inches="tight")
     plt.close()
-    print(f"📌 SHAP summary saved → {shap_path}")
+    print(f"📌 SHAP summary saved → {run_dir}/shap_summary.png")
 
 def main():
     warnings.filterwarnings("ignore")
