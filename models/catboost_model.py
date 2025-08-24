@@ -1,35 +1,25 @@
 # models/catboost_model.py
-
 from catboost import CatBoostClassifier
 
-def get_catboost_model():
+def get_model():
     """
-    Returns a CatBoostClassifier configured for GPU training
-    with balanced speed, accuracy, and GPU usage.
+    Returns a GPU CatBoostClassifier configured for balanced speed/accuracy
     """
-
     model = CatBoostClassifier(
-        iterations=200,          # fewer iterations for faster training
-        learning_rate=0.1,       # moderate learning rate
-        depth=6,                 # shallower depth = faster training
-        l2_leaf_reg=3,           # regularization
-        loss_function="Logloss", # classification loss
-        eval_metric="AUC",       # track AUC during training
-        random_seed=42,          # reproducibility
-
-        # GPU SETTINGS
-        task_type="GPU",         # force GPU usage
-        devices="0",             # GPU index (0 = first GPU)
-
-        # Subsampling for speed + less GPU load
+        iterations=200,
+        learning_rate=0.1,
+        depth=6,
+        l2_leaf_reg=3,
+        loss_function="Logloss",
+        eval_metric="AUC",
+        random_seed=42,
+        task_type="GPU",
+        devices="0",
         bootstrap_type="Bernoulli",
-        subsample=0.6,           # use 60% of data per tree
-
-        # Other efficiency tricks
-        grow_policy="SymmetricTree",  # default, balanced
-        boosting_type="Plain",        # faster boosting
-        verbose=50,                   # log every 50 iterations
+        subsample=0.6,
+        grow_policy="SymmetricTree",
+        boosting_type="Plain",
+        verbose=50,
         use_best_model=True
     )
-
     return model

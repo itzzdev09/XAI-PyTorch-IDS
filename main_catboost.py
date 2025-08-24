@@ -1,74 +1,72 @@
 import os
+import time
 import pandas as pd
-from catboost import CatBoostClassifier, Pool
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import classification_report, accuracy_score
-import shap
 import matplotlib.pyplot as plt
-from datetime import datetime
+import shap
+from models.catboost_model import get_model
+from catboost import CatBoostClassifier
 
-def load_data():
-    parquet_path = "Data/processed_data.parquet"
-    if not os.path.exists(parquet_path):
-        raise FileNotFoundError("❌ Processed data not found. Run preprocess.py first!")
+PROCESSED_DIR = "data/processed"
+RUNS_DIR = "Runs"
+os.makedirs(RUNS_DIR, exist_ok=True)
 
-    print("📂 Loading processed data (Parquet)...")
-    df = pd.read_parquet(parquet_path)
+def train_single_dataset(file_path, run_folder):
+    print(f"\n📂 Loading dataset: {file_path}")
+    df = pd.read_parquet(file_path)
 
-    y = df['Label']
-    X = df.drop(columns=['Label'])
+    if df['Label'].nunique() < 2:
+        print(f"⚠️ Skipping {file_path}: only one class present in target.")
+        return
 
-    # Let CatBoost auto-detect categorical features
-    categorical_cols = X.select_dtypes(include=['object', 'category']).columns.tolist()
+    X = df.drop("Label", axis=1)
+    y = df["Label"]
+    cat_cols = X.select_dtypes(include=['object']).columns.tolist()
 
-    return X, y, categorical_cols
+    model = get_model()
 
-def main():
-    run_dir = os.path.join("Runs", f"Run_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}")
-    os.makedirs(run_dir, exist_ok=True)
-    print(f"📂 New run folder: {run_dir}")
+    # ETA calculation
+    start_time = time.time()
+    def verbose_callback(iteration, logs):
+        elapsed = time.time() - start_time
+        if iteration > 0:
+            eta = elapsed / iteration * (model.get_params()["iterations"] - iteration)
+            print(f"Iteration {iteration}/{model.get_params()['iterations']} – ETA: {eta:.1f}s")
 
-    X, y, categorical_cols = load_data()
-
-    # Train/test split
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=42, stratify=y
+    # Train with callback
+    model.fit(
+        X, y,
+        cat_features=cat_cols,
+        verbose=0,
+        callbacks=[verbose_callback]
     )
-
-    # CatBoost model
-    model = CatBoostClassifier(
-        iterations=1000,
-        depth=8,
-        learning_rate=0.05,
-        loss_function='MultiClass',
-        task_type="GPU",  # use GPU if available
-        eval_metric="Accuracy",
-        early_stopping_rounds=50,
-        verbose=100
-    )
-
-    train_pool = Pool(X_train, y_train, cat_features=categorical_cols)
-    test_pool = Pool(X_test, y_test, cat_features=categorical_cols)
-
-    model.fit(train_pool, eval_set=test_pool, use_best_model=True)
 
     # Save model
-    model.save_model(os.path.join(run_dir, "catboost_model.cbm"))
-    print(f"✅ Model saved to {run_dir}/catboost_model.cbm")
+    model_name = os.path.join(run_folder, os.path.basename(file_path).replace(".parquet", "_catboost.cbm"))
+    model.save_model(model_name)
+    print(f"📌 Model saved → {model_name}")
 
-    # Evaluation
-    y_pred = model.predict(X_test)
-    print("📊 Classification Report:\n", classification_report(y_test, y_pred))
-    print("✅ Accuracy:", accuracy_score(y_test, y_pred))
-
-    # SHAP analysis
+    # SHAP summary
     explainer = shap.TreeExplainer(model)
-    shap_values = explainer.shap_values(X_test)
-
+    shap_values = explainer.shap_values(X)
     plt.figure()
-    shap.summary_plot(shap_values, X_test, show=False)
-    plt.savefig(os.path.join(run_dir, "shap_summary.png"))
+    shap.summary_plot(shap_values, X, show=False)
+    shap_file = os.path.join(run_folder, os.path.basename(file_path).replace(".parquet", "_shap.png"))
+    plt.savefig(shap_file)
     plt.close()
+    print(f"📌 SHAP summary saved → {shap_file}")
+
+def main():
+    run_folder = os.path.join(RUNS_DIR, f"Run_{pd.Timestamp.now().strftime('%Y-%m-%d_%H-%M-%S')}")
+    os.makedirs(run_folder, exist_ok=True)
+    print(f"📂 New run folder: {run_folder}")
+
+    parquet_files = sorted([f for f in os.listdir(PROCESSED_DIR) if f.endswith(".parquet")])
+    if not parquet_files:
+        raise FileNotFoundError("❌ No processed parquet files found. Run preprocess.py first!")
+
+    for file in parquet_files:
+        file_path = os.path.join(PROCESSED_DIR, file)
+        train_single_dataset(file_path, run_folder)
 
 if __name__ == "__main__":
     main()
