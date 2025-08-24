@@ -71,20 +71,29 @@ def load_dataset(path):
     return df
 
 def infer_and_fix_types(df):
-    df = df.copy()
-    known_cat = ["PROTOCOL_MAP", "IPV4_SRC_ADDR", "IPV4_DST_ADDR", "ALERT"]
-    object_cols = df.select_dtypes(include=["object"]).columns.tolist()
-    cat_cols = list(dict.fromkeys(known_cat + object_cols))
-    for c in cat_cols:
-        if c in df.columns:
-            df[c] = df[c].astype(str).fillna("missing")
-    df["Label"] = pd.to_numeric(df["Label"], errors="coerce").fillna(-1).astype(int)
-    num_candidates = [c for c in df.columns if c not in cat_cols + ["Label"]]
-    for c in num_candidates:
-        df[c] = pd.to_numeric(df[c], errors="coerce").fillna(0)
-    cat_cols = [c for c in cat_cols if c in df.columns]
+    """Infer and fix dtypes for CatBoost, without blowing up memory."""
+
+    cat_cols = []
+    num_cols = []
+
+    for c in df.columns:
+        if c.lower() in ["label", "target"]:  # skip label
+            continue
+
+        # If column is numeric-like already → force to float32 (smaller memory than int64)
+        if pd.api.types.is_numeric_dtype(df[c]):
+            df[c] = pd.to_numeric(df[c], errors="coerce").fillna(0).astype("float32")
+            num_cols.append(c)
+        else:
+            # Treat as categorical
+            df[c] = df[c].astype("category")
+            cat_cols.append(c)
+
     print(f"✅ Categorical features: {cat_cols}")
+    print(f"✅ Numerical features: {num_cols}")
+
     return df, cat_cols
+
 
 def stratified_downsample(df, per_class_max=PER_CLASS_MAX):
     groups = []
@@ -115,23 +124,63 @@ def train_in_chunks(params, train_pool, eval_pool, total_iters, chunk_iters, tra
         model = m
     return model
 
+# def compute_shap(model, X_sample, cat_indices, run_dir):
+#     """Compute SHAP values using CatBoost's built-in method and save plots."""
+#     pool = Pool(X_sample, cat_features=cat_indices)
+#     shap_values = model.get_feature_importance(data=pool, type="ShapValues")
+
+#     # Drop base value, keep feature contributions
+#     shap_values = shap_values[:, 1:]
+
+#     # Ensure 1D vector
+#     mean_abs_shap = np.abs(shap_values).mean(axis=0).ravel()
+
+#     shap_df = pd.DataFrame({
+#         "feature": list(X_sample.columns),
+#         "mean_abs_shap": mean_abs_shap
+#     }).sort_values("mean_abs_shap", ascending=False)
+
+#     shap_df.to_csv(os.path.join(run_dir, "shap_values.csv"), index=False)
+
+#     plt.figure(figsize=(10, 6))
+#     shap_df.head(20).plot(kind="bar", x="feature", y="mean_abs_shap", legend=False)
+#     plt.title("Top-20 Features by Mean SHAP Importance")
+#     plt.tight_layout()
+#     plt.savefig(os.path.join(run_dir, "shap_summary.png"))
+#     plt.close()
+
+
 def compute_shap(model, X_sample, cat_indices, run_dir):
-    print("🔍 Computing SHAP with CatBoost built-in method...")
-    
-    # CatBoost handles categorical encoding itself
-    shap_values = model.get_feature_importance(
-        data=catboost.Pool(X_sample, cat_features=cat_indices),
-        type="ShapValues"
-    )
-    
-    # Remove last column (CatBoost adds expected value column)
-    shap_values = shap_values[:, :-1]
-    
-    # Plot with shap
-    shap.summary_plot(shap_values, X_sample, show=False)
-    plt.savefig(os.path.join(run_dir, "shap_summary.png"), bbox_inches="tight")
+    """Compute SHAP values using CatBoost's built-in method and save plots."""
+    pool = Pool(X_sample, cat_features=cat_indices)
+    shap_values = model.get_feature_importance(data=pool, type="ShapValues")
+
+    # Drop bias column (first column is expected value)
+    shap_values = shap_values[:, 1:]
+
+    # Now average across samples
+    mean_abs_shap = np.abs(shap_values).mean(axis=0).ravel()
+
+    # ✅ Make sure lengths match
+    n_features = X_sample.shape[1]
+    mean_abs_shap = mean_abs_shap[:n_features]
+
+    shap_df = pd.DataFrame({
+        "feature": list(X_sample.columns),
+        "mean_abs_shap": mean_abs_shap
+    }).sort_values("mean_abs_shap", ascending=False)
+
+    shap_df.to_csv(os.path.join(run_dir, "shap_values.csv"), index=False)
+
+    plt.figure(figsize=(10, 6))
+    shap_df.head(20).plot(kind="bar", x="feature", y="mean_abs_shap", legend=False)
+    plt.title("Top-20 Features by Mean SHAP Importance")
+    plt.tight_layout()
+    plt.savefig(os.path.join(run_dir, "shap_summary.png"))
     plt.close()
-    print(f"📌 SHAP summary saved → {run_dir}/shap_summary.png")
+
+
+
 
 def main():
     warnings.filterwarnings("ignore")
