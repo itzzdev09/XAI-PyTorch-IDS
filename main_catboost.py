@@ -1,10 +1,10 @@
+
 import os
 import time
 import pandas as pd
 import matplotlib.pyplot as plt
 import shap
 from models.catboost_model import get_model
-from catboost import CatBoostClassifier
 
 PROCESSED_DIR = "data/processed"
 RUNS_DIR = "Runs"

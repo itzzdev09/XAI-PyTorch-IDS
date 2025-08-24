@@ -3,10 +3,11 @@ from catboost import CatBoostClassifier
 
 def get_model():
     """
-    Returns a GPU CatBoostClassifier configured for balanced speed/accuracy
+    Returns a CatBoostClassifier configured for GPU training
+    with balanced speed, accuracy, and GPU usage.
     """
     model = CatBoostClassifier(
-        iterations=200,
+        iterations=500,
         learning_rate=0.1,
         depth=6,
         l2_leaf_reg=3,
