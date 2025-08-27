@@ -218,6 +218,11 @@ def main():
             model = train_in_chunks(CB_PARAMS_CPU, train_pool, eval_pool,
                                     CB_PARAMS_CPU["iterations"], CHUNK_ITERS, train_dir)
 
+        # ✅ Save model for this fold
+        model_path = os.path.join(run_dir, f"model_fold_{fold}.cbm")
+        model.save_model(model_path)
+        print(f"💾 Model for Fold {fold} saved → {model_path}")
+
         y_pred = model.predict(X_test).astype(int)
         report = classification_report(y_test, y_pred, output_dict=True)
         fold_metrics.append(report)
