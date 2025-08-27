@@ -197,6 +197,13 @@ def main():
     y = df_small["Label"].values
     cat_indices = [X.columns.get_loc(c) for c in cat_cols if c in X.columns]
 
+    # ✅ Save feature names (in correct order) for inference later
+    features_path = os.path.join(run_dir, "features.json")
+    with open(features_path, "w") as f:
+        json.dump(X.columns.tolist(), f, indent=2)
+    print(f"📄 Saved feature names → {features_path}")
+    cat_indices = [X.columns.get_loc(c) for c in cat_cols if c in X.columns]
+
     skf = StratifiedKFold(n_splits=N_SPLITS, shuffle=True, random_state=RANDOM_STATE)
     fold_metrics = []
 
