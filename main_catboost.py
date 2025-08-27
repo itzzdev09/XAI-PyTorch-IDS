@@ -182,6 +182,8 @@ def compute_shap(model, X_sample, cat_indices, run_dir):
 
 
 
+from sklearn.model_selection import train_test_split
+
 def main():
     warnings.filterwarnings("ignore")
     run_dir = start_run_dir()
@@ -189,63 +191,61 @@ def main():
 
     df = load_dataset(DATA_PATH)
     df, cat_cols = infer_and_fix_types(df)
-    df_small = stratified_downsample(df, per_class_max=PER_CLASS_MAX)
 
-    # drop identifying columns to avoid leakage
+    # ✅ Use full dataset (no downsampling)
+    print(f"✅ Using full dataset: {df.shape}")
+
+    # Drop identifying/leaky columns
     drop_cols = ["IPV4_SRC_ADDR", "IPV4_DST_ADDR", "ALERT"]
-    X = df_small.drop(columns=["Label"] + [c for c in drop_cols if c in df_small.columns])
-    y = df_small["Label"].values
+    X = df.drop(columns=["Label"] + [c for c in drop_cols if c in df.columns])
+    y = df["Label"].values
     cat_indices = [X.columns.get_loc(c) for c in cat_cols if c in X.columns]
 
-    skf = StratifiedKFold(n_splits=N_SPLITS, shuffle=True, random_state=RANDOM_STATE)
-    fold_metrics = []
+    # ✅ Simple train-test split (e.g., 80/20)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, stratify=y,
+                                                        test_size=0.2,
+                                                        random_state=RANDOM_STATE)
 
-    for fold, (train_idx, test_idx) in enumerate(skf.split(X, y), 1):
-        print(f"\n🔹 Fold {fold}/{N_SPLITS}")
-        X_train, X_test = X.iloc[train_idx], X.iloc[test_idx]
-        y_train, y_test = y[train_idx], y[test_idx]
+    train_pool = Pool(X_train, y_train, cat_features=cat_indices)
+    eval_pool = Pool(X_test, y_test, cat_features=cat_indices)
 
-        train_pool = Pool(X_train, y_train, cat_features=cat_indices)
-        eval_pool  = Pool(X_test, y_test, cat_features=cat_indices)
+    train_dir = os.path.join(run_dir, "train_logs")
+    try:
+        print("🚀 Training on GPU…")
+        model = train_in_chunks(CB_PARAMS_GPU, train_pool, eval_pool,
+                                CB_PARAMS_GPU["iterations"], CHUNK_ITERS, train_dir)
+    except CatBoostError:
+        print("🔁 Falling back to CPU…")
+        model = train_in_chunks(CB_PARAMS_CPU, train_pool, eval_pool,
+                                CB_PARAMS_CPU["iterations"], CHUNK_ITERS, train_dir)
 
-        train_dir = os.path.join(run_dir, f"fold_{fold}_train_logs")
-        try:
-            print("🚀 Training on GPU…")
-            model = train_in_chunks(CB_PARAMS_GPU, train_pool, eval_pool,
-                                    CB_PARAMS_GPU["iterations"], CHUNK_ITERS, train_dir)
-        except CatBoostError:
-            print("🔁 Falling back to CPU…")
-            model = train_in_chunks(CB_PARAMS_CPU, train_pool, eval_pool,
-                                    CB_PARAMS_CPU["iterations"], CHUNK_ITERS, train_dir)
+    # ✅ Predict and report
+    y_pred = model.predict(X_test).astype(int)
+    report = classification_report(y_test, y_pred, output_dict=True)
 
-        y_pred = model.predict(X_test).astype(int)
-        report = classification_report(y_test, y_pred, output_dict=True)
-        fold_metrics.append(report)
+    # Save confusion matrix
+    cm = confusion_matrix(y_test, y_pred)
+    plt.imshow(cm, interpolation='nearest')
+    plt.title("Confusion Matrix")
+    plt.xlabel("Predicted")
+    plt.ylabel("True")
+    plt.colorbar()
+    plt.tight_layout()
+    cm_path = os.path.join(run_dir, "confusion_matrix.png")
+    plt.savefig(cm_path, dpi=150)
+    plt.close()
+    print(f"📌 Confusion matrix saved → {cm_path}")
 
-        # save confusion matrix per fold
-        cm = confusion_matrix(y_test, y_pred)
-        plt.imshow(cm, interpolation='nearest')
-        plt.title(f"Confusion Matrix Fold {fold}")
-        plt.xlabel("Predicted")
-        plt.ylabel("True")
-        plt.colorbar()
-        plt.tight_layout()
-        cm_path = os.path.join(run_dir, f"confusion_matrix_fold_{fold}.png")
-        plt.savefig(cm_path, dpi=150)
-        plt.close()
-        print(f"📌 Confusion matrix saved → {cm_path}")
+    # SHAP (on sample of test set)
+    shap_n = min(2000, len(X_test))
+    X_sample = X_test.sample(n=shap_n, random_state=RANDOM_STATE)
+    compute_shap(model, X_sample, cat_indices, run_dir)
 
-        # compute SHAP only for first fold to save time
-        if fold == 1:
-            shap_n = min(2000, len(X_test))
-            X_sample = X_test.sample(n=shap_n, random_state=RANDOM_STATE)
-            compute_shap(model, X_sample, cat_indices, run_dir)
-
-    # save all fold metrics
-    metrics_path = os.path.join(run_dir, "metrics_kfold.json")
+    # Save metrics
+    metrics_path = os.path.join(run_dir, "metrics.json")
     with open(metrics_path, "w") as f:
-        json.dump(fold_metrics, f, indent=2)
-    print(f"\n📌 K-Fold metrics saved → {metrics_path}")
+        json.dump(report, f, indent=2)
+    print(f"\n📌 Classification report saved → {metrics_path}")
     print("\n✅ Done.")
 
 if __name__ == "__main__":
