@@ -114,11 +114,13 @@ def main():
     with open(os.path.join(run_dir, "features.json"), "w") as f:
         json.dump(X.columns.tolist(), f, indent=2)
 
-    # 70-30 split
+    # ✅ 50-50 split
     X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=TEST_SIZE, stratify=y, random_state=RANDOM_STATE
+        X, y, test_size=0.5, stratify=y, random_state=RANDOM_STATE
     )
     print(f"Training samples: {len(y_train)}, Testing: {len(y_test)}")
+    print(f"Train label distribution:\n{pd.Series(y_train).value_counts()}")
+    print(f"Test label distribution:\n{pd.Series(y_test).value_counts()}")
 
     train_pool = Pool(X_train, y_train, cat_features=cat_indices)
     test_pool = Pool(X_test, y_test, cat_features=cat_indices)
@@ -134,6 +136,8 @@ def main():
     model.save_model(os.path.join(run_dir, "model.cbm"))
 
     y_pred = model.predict(X_test).astype(int)
+    y_proba = model.predict_proba(X_test)
+
     report = classification_report(y_test, y_pred, output_dict=True)
     with open(os.path.join(run_dir, "classification_report.json"), "w") as f:
         json.dump(report, f, indent=2)
@@ -150,11 +154,14 @@ def main():
     plt.savefig(os.path.join(run_dir, "confusion_matrix.png"))
     plt.close()
 
-    # SHAP for interpretability
+    # Save probabilities and true labels for detailed analysis
+    proba_df = pd.DataFrame(y_proba, columns=[f"class_{i}" for i in range(y_proba.shape[1])])
+    proba_df["true"] = y_test
+    proba_df["pred"] = y_pred.flatten()
+    proba_df.to_csv(os.path.join(run_dir, "predictions_with_proba.csv"), index=False)
+
+    # SHAP analysis on a sample of test set
     sample_n = min(1000, len(X_test))
     compute_shap(model, X_test.sample(n=sample_n, random_state=RANDOM_STATE), cat_indices, run_dir)
 
     print("✅ Done.")
-
-if __name__ == "__main__":
-    main()
