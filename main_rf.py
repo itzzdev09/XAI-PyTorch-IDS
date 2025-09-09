@@ -5,9 +5,13 @@ import joblib
 import warnings
 from datetime import datetime
 
+import matplotlib
+matplotlib.use('Agg')  # 👈 Prevent Tkinter-related crashes in headless environments
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+
 
 from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import (
