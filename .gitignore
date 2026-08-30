@@ -1,0 +1,24 @@
+# Datasets — download separately, see README
+CICIDS-2017/cicids_db/
+*.pcap
+*.pcap_ISCX.csv
+
+# Trained models (too large for GitHub's 100 MB file limit)
+*.joblib
+*.pkl
+*.h5
+*.pt
+*.pth
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+Thumbs.db
