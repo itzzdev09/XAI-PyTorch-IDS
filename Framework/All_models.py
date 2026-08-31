@@ -605,16 +605,8 @@ plt.close(fig)
 print(y_test[misclassified_indices[3]], pred_labels[misclassified_indices[3]])
 
 '''
-import sys
-
-# Path to the directory where XAI_Framework is located
-framework_dir = '/Users/tanishrohith/Downloads/XAI_NIDS-main_framework'
-
-# Add the directory to sys.path
-sys.path.append(framework_dir)
-
-# Now try importing your module
-from XAI_Framework.Shap_Lime import shap_barplots, shap_waterfallplot, shap_beeswarmplot, lime_plot
+# Shap_Lime.py sits next to this file in the Framework/ directory
+from Shap_Lime import shap_barplots, shap_waterfallplot, shap_beeswarmplot, lime_plot
 # Use the imported functions
 
 
