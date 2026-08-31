@@ -21,7 +21,6 @@ import seaborn as sns
 
 from sklearn import metrics
 from sklearn.metrics import accuracy_score # for calculating accuracy of model
-from sklearn.model_selection import train_test_split # for splitting the dataset for training and testing
 from sklearn.metrics import classification_report # for generating a classification report of model
 
 from sklearn.metrics import precision_score
@@ -357,8 +356,6 @@ X_test=X_test_multi.copy()
 
 
 from imblearn.over_sampling import RandomOverSampler
-
-from sklearn.datasets import make_classification
 
 ros = RandomOverSampler(sampling_strategy='minority', random_state=1000)
 X_train, Y_train = ros.fit_resample(X_train, Y_train)
