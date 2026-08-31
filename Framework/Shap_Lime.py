@@ -1,7 +1,6 @@
 import shap
 import lime
-import numpy as np
-# Import other necessary libraries such as pandas, numpy, or your specific ML model libraries
+import lime.lime_tabular
 
 def shap_barplots(model, X_train, X_test):
     explainer = shap.KernelExplainer(model.predict, shap.sample(X_train, 20))
@@ -31,8 +30,6 @@ def shap_beeswarmplot(model, X_train, X_test):
 
 
 def lime_plot(model, X_train, X_test,Y_train, row_index,class_names):
-    import lime
-    import lime.lime_tabular
     # Create a Lime explainer object
     explainer = lime.lime_tabular.LimeTabularExplainer(
     X_train.values,
