@@ -280,7 +280,7 @@ elif model_choice == '4':
 
     # Predict the test set results
     start = time.time()
-    preds = multi_target_rf.predict(X_test)
+    y_pred = multi_target_rf.predict(X_test)
     end = time.time()
     print(f'Time taken for predictions: {end - start} seconds')
 
@@ -314,7 +314,7 @@ elif model_choice == '5':
     print(f'Time taken for training: {time_taken} seconds')
 
     # Predict classes
-    preds = model.predict(X_test)
+    y_pred = model.predict(X_test)
 
 
     # In[27]:
@@ -322,7 +322,7 @@ elif model_choice == '5':
 
     start = time.time()
 
-    preds = model.predict(X_test)
+    y_pred = model.predict(X_test)
 
 
     # End the timer
