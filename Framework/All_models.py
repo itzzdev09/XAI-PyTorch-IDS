@@ -129,6 +129,7 @@ def AUC_ROC(y_test_bin,y_score):
     roc_auc = dict()
     auc_avg = 0
     counting = 0
+    n_classes = y_test_bin.shape[1]
     for i in range(n_classes):
       fpr[i], tpr[i], _ = roc_curve(y_test_bin[:, i], y_score[:, i])
      # plt.plot(fpr[i], tpr[i], color='darkorange', lw=2)
