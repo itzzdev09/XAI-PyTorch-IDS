@@ -179,7 +179,7 @@ if model_choice == '1':
     y_pred = multi_target_abc.predict(X_test)
     end=time.time()
     time_taken = end - start
-    print(f'Time taken for training: {time_taken} seconds')
+    print(f'Time taken for prediction: {time_taken} seconds')
 
 
 elif model_choice == '2':
@@ -210,7 +210,7 @@ elif model_choice == '2':
     y_pred = multi_target_knn.predict(X_test.values)
     end=time.time()
     time_taken = end - start
-    print(f'Time taken for training: {time_taken} seconds')
+    print(f'Time taken for prediction: {time_taken} seconds')
 
 elif model_choice == '3':
     from sklearn.neural_network import MLPClassifier
