@@ -430,6 +430,8 @@ if Y_test.shape[1] == 2:  # Binary classification
     roc_auc = roc_auc_score(y_test_bin, y_pred_bin)
 elif Y_test.shape[1] > 2:  # Multi-class classification
     roc_auc = roc_auc_score(y_test_bin, y_pred_bin, multi_class='ovr', average='macro')
+else:
+    roc_auc = float('nan')
 
 print(f"AUC-ROC: {roc_auc}")
 
